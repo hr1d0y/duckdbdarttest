@@ -17,11 +17,8 @@ class SqlExecutorPage extends StatefulWidget {
   _SqlExecutorPageState createState() => _SqlExecutorPageState();
 }
 
-typedef QueryResponse = ({
-  List<String>? columns,
-  List<List<Object?>>? rows,
-  int totalRows,
-});
+typedef QueryResponse =
+    ({List<String>? columns, List<List<Object?>>? rows, int totalRows});
 
 class _SqlExecutorPageState extends State<SqlExecutorPage> {
   final _sqlController = TextEditingController();
@@ -161,8 +158,9 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
           });
           completer.complete();
         } else if (msg is String) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Error: $msg')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $msg')));
           completer.completeError(msg);
           print('Error: $msg');
         }
@@ -170,8 +168,9 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
 
       await completer.future;
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
       print('Error: $e');
     }
   }
@@ -213,8 +212,10 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
     // 5) Import the first file
     final file1 = result.files[0];
     final path1 = file1.path!;
-    final table1 =
-        file1.name.split('.').first.replaceAll(RegExp(r'[^\w]+'), '_');
+    final table1 = file1.name
+        .split('.')
+        .first
+        .replaceAll(RegExp(r'[^\w]+'), '_');
     await _connection!.query("""
     CREATE TABLE IF NOT EXISTS $table1 AS
     SELECT *
@@ -228,8 +229,10 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
     if (result.files.length > 1) {
       final file2 = result.files[1];
       final path2 = file2.path!;
-      final table2 =
-          file2.name.split('.').first.replaceAll(RegExp(r'[^\w]+'), '_');
+      final table2 = file2.name
+          .split('.')
+          .first
+          .replaceAll(RegExp(r'[^\w]+'), '_');
       await _connection!.query("""
       CREATE TABLE IF NOT EXISTS $table2 AS
       SELECT *
@@ -332,7 +335,8 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
       final info = entry.key;
       final path = entry.value;
       await _connection!.query(
-          "PRAGMA add_parquet_key('${info.keyName}', '${info.keyBase64}');");
+        "PRAGMA add_parquet_key('${info.keyName}', '${info.keyBase64}');",
+      );
 
       final tableName = p
           .basenameWithoutExtension(info.fileName)
@@ -361,9 +365,9 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
   Future<void> _applyUpdateZip() async {
     // must have base data already loaded
     if (_connection == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Import base.zip first.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Import base.zip first.')));
       return;
     }
 
@@ -409,7 +413,8 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
         final info = entry.key;
         final path = entry.value;
         await _connection!.query(
-            "PRAGMA add_parquet_key('${info.keyName}', '${info.keyBase64}');");
+          "PRAGMA add_parquet_key('${info.keyName}', '${info.keyBase64}');",
+        );
 
         final tableName = p
             .basenameWithoutExtension(info.fileName)
@@ -423,13 +428,13 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
         );
       ''');
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Update applied.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Update applied.')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       // 5. clean up temp files and the update.zip itself
       for (final pth in updates.values) {
@@ -448,6 +453,129 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
       _offset = 0;
       await _executeQuery();
     }
+    setState(() {});
+  }
+
+  Future<void> _loadNineEncryptedParquets() async {
+    // 1) Permissions --------------------------------------------------------
+    if (!await _ensureStoragePermission()) {
+      print('🚫 Storage permission denied');
+      return;
+    }
+    print('✅ Storage permission granted');
+
+    // 2) Pick (up to) 9 parquet files --------------------------------------
+    final picked = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any,
+    );
+    if (picked == null || picked.files.isEmpty) {
+      print('🛈 No files selected');
+      return;
+    }
+    print('📂 Selected ${picked.files.length} file(s)');
+
+    // 3) Build the key-lookup map ------------------------------------------
+    const keyInfo = <String, Map<String, String>>{
+      'cat': {
+        'keyName': 'key_1fd7aa03f0c37617',
+        'key': 'USJHikiPiPud6vtznBTl5ukLsHuDjXBRgi+qdmq01fE=',
+      },
+      'tags': {
+        'keyName': 'key_a234abdce1a92451',
+        'key': '/QA0IIzrJEKSqJdxI7K5CPhHVTFpW3MFfBnMyn2R53I=',
+      },
+      'faculty': {
+        'keyName': 'key_cef33b80dee3a0f9',
+        'key': '5dHjemtgni9/nyujXAWnDTbogdPQdq+0cqsHSOolQOE=',
+      },
+      'subject': {
+        'keyName': 'key_675a364f51f1959a',
+        'key': 'p9/pYwNxQzW3p7VTEgmBNTr8MpnUwKFFvajXnnXCf50=',
+      },
+      'exam_cat': {
+        'keyName': 'key_5b2ae167f4f3c80a',
+        'key': 'vv4VkWiFx7BTwPsMredDb1G0nfRgndc74dd5C4KZdfc=',
+      },
+      'questions': {
+        'keyName': 'key_72b512534d839cf1',
+        'key': 'mLScjwOxPF/7wDzY5CwPuTtj8BaIv0h20zpTA4ZuyKU=',
+      },
+      'fvrt_questions': {
+        'keyName': 'key_4894caea5efba172',
+        'key': 'TWd91Sl5Ys3V5n2dJ7Z9dbN8oebqvAb084fZJVyzX6Q=',
+      },
+      'js_exam_designation': {
+        'keyName': 'key_b9615e2a5355720e',
+        'key': '7hmaT92QblBFbui4Y0hPsRXqLTvsZtnh1rl1folzc3k=',
+      },
+      'js_exam_for_ministry': {
+        'keyName': 'key_0656bfbcb6861015',
+        'key': 'GTaICL8IrC/Y0YF8S3hBVAjnYM0RHiXMGa6BM3Oa+7w=',
+      },
+    };
+
+    // 4) Re-initialise DuckDB ---------------------------------------------
+    await _connection?.dispose();
+    await _database?.dispose();
+    final docsDir = await getApplicationDocumentsDirectory();
+    _database = await duckdb.open('${docsDir.path}/mydb.duckdb');
+    _connection = await duckdb.connect(_database!);
+    _loadedTableNames.clear();
+    print('🐤 DuckDB opened at ${docsDir.path}/mydb.duckdb');
+
+    // 5) Iterate through files --------------------------------------------
+    for (final f in picked.files) {
+      final path = f.path!;
+      final base = p.basenameWithoutExtension(
+        path,
+      ); // e.g. fvrt_questions_key_...
+
+      String? matchedLabel;
+      for (final lbl in keyInfo.keys) {
+        if (base.startsWith('${lbl}_')) {
+          // lbl is defined in this scope
+          matchedLabel = lbl;
+          break;
+        }
+      }
+      if (matchedLabel == null) {
+        print('⚠️  Skipping $base — no matching key prefix');
+        continue;
+      }
+      final map = keyInfo[matchedLabel]!;
+
+      await _connection!.query(
+        "PRAGMA add_parquet_key('${map['keyName']}', '${map['key']}');",
+      );
+      print('🔑 Registered ${map['keyName']} for $base');
+
+      final tableName = base.replaceAll(RegExp(r'[^\w]+'), '_');
+      await _connection!.query('''
+    CREATE TABLE IF NOT EXISTS $tableName AS
+    SELECT *
+    FROM read_parquet(
+      '$path',
+      encryption_config = { footer_key: '${map['keyName']}' }
+    );
+  ''');
+      print('📊 Created / refreshed table $tableName');
+      _loadedTableNames.add(tableName);
+    }
+
+    if (_loadedTableNames.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No recognised Parquet files.')),
+      );
+      return;
+    }
+
+    // 6) Preview first table -----------------------------------------------
+    _sqlController.text = 'SELECT * FROM ${_loadedTableNames.first};';
+    _offset = 0;
+    await _executeQuery();
+    print('👀 Previewing ${_loadedTableNames.first}');
+
     setState(() {});
   }
 
@@ -478,6 +606,11 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
             icon: const Icon(Icons.archive),
             tooltip: 'update zip',
             onPressed: _applyUpdateZip,
+          ),
+          IconButton(
+            icon: const Icon(Icons.star),
+            tooltip: 'Open 9 Parquet files',
+            onPressed: _loadNineEncryptedParquets, // ← call the new helper
           ),
         ],
       ),
@@ -557,9 +690,10 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
                     ),
                     ElevatedButton(
                       // enable while we still have at least one full page left
-                      onPressed: (_offset + _limit) < _totalRows
-                          ? _loadNextPage
-                          : null,
+                      onPressed:
+                          (_offset + _limit) < _totalRows
+                              ? _loadNextPage
+                              : null,
                       child: const Text('Next'),
                     ),
                   ],
@@ -578,11 +712,15 @@ class _SqlExecutorPageState extends State<SqlExecutorPage> {
     }
     final columns =
         _columnNames.map((c) => DataColumn(label: Text(c))).toList();
-    final rows = _rows.map((row) {
-      return DataRow(
-        cells: row.map((v) => DataCell(Text(v?.toString() ?? 'NULL'))).toList(),
-      );
-    }).toList();
+    final rows =
+        _rows.map((row) {
+          return DataRow(
+            cells:
+                row
+                    .map((v) => DataCell(Text(v?.toString() ?? 'NULL')))
+                    .toList(),
+          );
+        }).toList();
 
     return Scrollbar(
       controller: _verticalScrollController,
@@ -615,11 +753,11 @@ class _QueryTaskParams {
     this.sendPort,
   });
   _QueryTaskParams copyWith({SendPort? sendPort}) => _QueryTaskParams(
-        transferableDb: transferableDb,
-        query: query,
-        countQuery: countQuery,
-        sendPort: sendPort ?? this.sendPort,
-      );
+    transferableDb: transferableDb,
+    query: query,
+    countQuery: countQuery,
+    sendPort: sendPort ?? this.sendPort,
+  );
 }
 // Add this after the QueryResponse typedef and before the _SqlExecutorPageState class
 
